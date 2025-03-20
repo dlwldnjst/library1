@@ -1,0 +1,6 @@
+streamlit
+pandas
+openpyxl
+html5lib
+lxml
+bs4
