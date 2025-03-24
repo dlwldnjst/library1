@@ -49,7 +49,7 @@ skiprows_pur = 0
 lib_file = st.file_uploader("소장 도서 목록 파일 업로드 (.xls 또는 .xlsx)", type=["xls", "xlsx"])
 pur_file = st.file_uploader("구매 예정 파일 업로드 (.xls 또는 .xlsx)", type=["xls", "xlsx"])
 
-<br> 구매 예정 파일을 업로드할 때 오류가 날 경우, xls 파일을 xlsx로 저장 후 다시 시도해주세요 :)
+<br> -구매 예정 파일을 업로드할 때 오류가 날 경우, 확장자를 xls에서 xlsx로 저장 후 다시 시도해주세요
 
 def extract_first_table(html_text):
     """정규표현식을 사용해 첫 번째 <table>...</table> 블록 추출"""
