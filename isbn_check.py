@@ -49,7 +49,7 @@ skiprows_pur = 0
 lib_file = st.file_uploader("소장 도서 목록 파일 업로드 (.xls 또는 .xlsx)", type=["xls", "xlsx"])
 pur_file = st.file_uploader("구매 예정 파일 업로드 (.xls 또는 .xlsx)", type=["xls", "xlsx"])
 
-st.markdown("<br>- 구매 예정 파일을 업로드할 때 오류가 날 경우, 확장자를 xls에서 xlsx로 저장 후 다시 시도해주세요", unsafe_allow_html=True)
+st.markdown("<br> 구매 예정 파일을 업로드할 때 오류가 날 경우, 확장자를 xls에서 xlsx로 저장 후 다시 시도해주세요", unsafe_allow_html=True)
 
 def extract_first_table(html_text):
     """정규표현식을 사용해 첫 번째 <table>...</table> 블록 추출"""
@@ -134,6 +134,30 @@ def read_uploaded_file(file, skiprows=0):
         
         raise ValueError("파일 형식을 인식할 수 없습니다. 지원되는 형식인지 확인하세요.")
 
+def drop_rows_with_mostly_empty(df, threshold=0.8):
+    """
+    각 행에서 전체 셀 중 빈 값(또는 공백 문자열)의 비율이 threshold 이상이면 해당 행을 제거합니다.
+    
+    Args:
+        df (pd.DataFrame): 입력 데이터프레임
+        threshold (float): 제거 기준 비율 (예: 0.8이면 80% 이상 빈 셀이면 제거)
+        
+    Returns:
+        pd.DataFrame: 필터링된 데이터프레임
+    """
+    n_cols = df.shape[1]
+    
+    def is_empty(val):
+        # NaN이거나 문자열의 경우 공백문자만 있다면 빈 값으로 간주
+        if pd.isna(val):
+            return True
+        if isinstance(val, str) and val.strip() == "":
+            return True
+        return False
+
+    mask = df.apply(lambda row: sum(is_empty(cell) for cell in row) / n_cols < threshold, axis=1)
+    return df[mask].copy()
+
 if lib_file is not None and pur_file is not None:
     # 소장 도서 목록 읽기
     try:
@@ -212,6 +236,9 @@ if lib_file is not None and pur_file is not None:
         output_df = output_df[~mask].copy()
         removed_count = pur_df.shape[0] - output_df.shape[0]
         st.info(f"총 {removed_count} 권의 중복 도서가 제거되었습니다.")
+        
+        # 불필요한 빈 행 제거 (전체 셀의 80% 이상이 빈 행 제거)
+        output_df = drop_rows_with_mostly_empty(output_df, threshold=0.5)
         
         # 번호(순번) 칼럼 재설정: 기존 '순번' 칼럼이 있으면 덮어쓰고, 없으면 새로 삽입하여 1부터 연속된 번호를 부여
         output_df.reset_index(drop=True, inplace=True)
