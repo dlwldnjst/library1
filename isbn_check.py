@@ -187,15 +187,15 @@ if lib_file is not None and pur_file is not None:
         lib_df[lib_isbn_col] = clean_isbn(lib_df[lib_isbn_col])
         pur_df[pur_isbn_col] = clean_isbn(pur_df[pur_isbn_col])
 
-        # 유효한 ISBN(13자리)만 필터링
+        # 소장 도서 목록은 ISBN이 유효한 (13자리) 행만 남김
         lib_isbn_valid = lib_df[lib_isbn_col].astype(str).str.len() == 13
-        pur_isbn_valid = pur_df[pur_isbn_col].astype(str).str.len() == 13
-        
         lib_df = lib_df[lib_isbn_valid].dropna(subset=[lib_isbn_col])
-        pur_df = pur_df[pur_isbn_valid].dropna(subset=[pur_isbn_col])
-
-        # 중복된 ISBN 찾기
-        duplicate_isbns = set(pur_df[pur_isbn_col]).intersection(set(lib_df[lib_isbn_col]))
+        
+        # 구매 예정 목록은 ISBN 칼럼이 있는 행만 대상으로 중복 제거하되,
+        # ISBN이 없는 행은 그대로 유지 (즉, ISBN이 있는 행 중에서만 제거)
+        # 따라서 중복 체크 대상은 ISBN 값이 존재하면서 길이가 13인 행입니다.
+        mask = pur_df[pur_isbn_col].notna() & (pur_df[pur_isbn_col].astype(str).str.len() == 13) & (pur_df[pur_isbn_col].isin(lib_df[lib_isbn_col]))
+        duplicate_isbns = set(pur_df.loc[mask, pur_isbn_col])
         duplicate_count = len(duplicate_isbns)
         
         st.subheader("중복된 ISBN 목록")
@@ -205,16 +205,18 @@ if lib_file is not None and pur_file is not None:
         else:
             st.info("중복된 ISBN이 없습니다.")
         
-        # 중복 제거 후 구매 예정 목록 생성 (원본 pur_df의 컬럼 순서와 헤더 유지)
-        if not duplicate_isbns:
-            st.info("중복된 ISBN이 없으므로, 구매 예정 목록은 변경되지 않았습니다.")
-            output_df = pur_df.copy()
-        else:
-            output_df = pur_df[~pur_df[pur_isbn_col].isin(lib_df[lib_isbn_col])].copy()
-            st.info(f"총 {pur_df.shape[0] - output_df.shape[0]} 권의 중복 도서가 제거되었습니다.")
+        # 중복 제거 후 구매 예정 목록 생성: ISBN이 존재하며 라이브러리 목록에 있는 행만 제거
+        output_df = pur_df.copy()
+        output_df = output_df[~mask].copy()
+        removed_count = pur_df.shape[0] - output_df.shape[0]
+        st.info(f"총 {removed_count} 권의 중복 도서가 제거되었습니다.")
         
-        # 다운로드 시 원본 구매 예정 목록과 동일한 컬럼 순서를 유지하도록 함
-        # (기존에 재설정하던 desired_columns 관련 코드는 제거합니다.)
+        # 번호(순번) 칼럼 재설정: 기존 '순번' 칼럼이 있으면 덮어쓰고, 없으면 새로 삽입하여 1부터 연속된 번호를 부여
+        output_df.reset_index(drop=True, inplace=True)
+        if "순번" in output_df.columns:
+            output_df["순번"] = range(1, len(output_df) + 1)
+        else:
+            output_df.insert(0, "순번", range(1, len(output_df) + 1))
         
         st.subheader("중복 제거 후 구매 예정 목록 미리보기")
         st.dataframe(output_df)
