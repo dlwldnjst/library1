@@ -5,6 +5,7 @@ from io import StringIO
 import re
 import subprocess
 import sys
+import os
 
 st.title("ISBN 중복 도서 지우개 ")
 # 버튼 스타일의 링크 추가
@@ -53,7 +54,6 @@ st.markdown(
     "<hr>구매 예정 파일을 업로드할 때 오류가 날 경우, 확장자를 xls에서 xlsx로 저장 후 다시 시도해주세요.<br><br>문의: dlwldnjst@gmail.com<br><hr>",
     unsafe_allow_html=True
 )
-
 
 def extract_first_table(html_text):
     """정규표현식을 사용해 첫 번째 <table>...</table> 블록 추출"""
@@ -267,12 +267,28 @@ if lib_file is not None and pur_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-# 페이지 제일 하단에 방문자 수(카운터)를 흰색 글씨로 추가합니다.
+# 전역 방문자 수(카운터)를 파일에 저장하는 방식으로 구현합니다.
+# 이 파일은 앱의 루트 디렉토리에 생성되며, 외부 사용자는 접근할 수 없습니다.
+counter_file = "visitor_counter.txt"
+if not os.path.exists(counter_file):
+    with open(counter_file, "w") as f:
+        f.write("0")
+
+# 파일을 읽어 현재 카운트를 가져오고, 증가시킵니다.
+with open(counter_file, "r+") as f:
+    count_str = f.read().strip()
+    try:
+        count = int(count_str)
+    except:
+        count = 0
+    count += 1
+    f.seek(0)
+    f.write(str(count))
+    f.truncate()
+
+# 페이지 제일 하단에 방문자 수(카운터)를 흰색 글씨로 표시합니다.
 # 이 글씨는 배경과 동일한 흰색이므로 일반 사용자는 보이지 않고, 개발자만 확인할 수 있습니다.
-if 'global_visit_counter' not in st.session_state:
-    st.session_state.global_visit_counter = 0
-st.session_state.global_visit_counter += 1
 st.markdown(
-    f"<div style='color: white; font-size: 10px; text-align: center;'>총 방문자 수: {st.session_state.global_visit_counter}</div>",
+    f"<div style='color: white; font-size: 10px; text-align: center;'>총 방문자 수: {count}</div>",
     unsafe_allow_html=True
 )
