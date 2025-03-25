@@ -241,7 +241,7 @@ if lib_file is not None and pur_file is not None:
         removed_count = pur_df.shape[0] - output_df.shape[0]
         st.info(f"총 {removed_count} 권의 중복 도서가 제거되었습니다.")
         
-        # 불필요한 빈 행 제거 (전체 셀의 80% 이상이 빈 행 제거)
+        # 불필요한 빈 행 제거 (전체 셀의 50% 이상이 빈 행 제거)
         output_df = drop_rows_with_mostly_empty(output_df, threshold=0.5)
         
         # 번호(순번) 칼럼 재설정: 기존 '순번' 칼럼이 있으면 덮어쓰고, 없으면 새로 삽입하여 1부터 연속된 번호를 부여
@@ -266,3 +266,13 @@ if lib_file is not None and pur_file is not None:
             file_name="filtered_purchase_list.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
+# 페이지 제일 하단에 방문자 수(카운터)를 흰색 글씨로 추가합니다.
+# 이 글씨는 배경과 동일한 흰색이므로 일반 사용자는 보이지 않고, 개발자만 확인할 수 있습니다.
+if 'global_visit_counter' not in st.session_state:
+    st.session_state.global_visit_counter = 0
+st.session_state.global_visit_counter += 1
+st.markdown(
+    f"<div style='color: white; font-size: 10px; text-align: center;'>총 방문자 수: {st.session_state.global_visit_counter}</div>",
+    unsafe_allow_html=True
+)
