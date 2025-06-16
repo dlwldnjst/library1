@@ -33,14 +33,14 @@ st.markdown(
 )
 
 # 필요한 패키지 설치 확인 및 설치
-required_packages = ['html5lib', 'lxml', 'bs4']
-for package in required_packages:
-    try:
-        __import__(package)
-    except ImportError:
-        st.warning(f"{package} 패키지를 설치합니다...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-        st.success(f"{package} 패키지가 설치되었습니다.")
+# required_packages = ['html5lib', 'lxml', 'bs4']
+# for package in required_packages:
+#     try:
+#         __import__(package)
+#     except ImportError:
+#         st.warning(f"{package} 패키지를 설치합니다...")
+#         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+#         st.success(f"{package} 패키지가 설치되었습니다.")
 
 # 헤더(컬럼명)가 첫 행에 있다고 가정 (필요에 따라 수정)
 skiprows_lib = 0
@@ -206,6 +206,18 @@ if lib_file is not None and pur_file is not None:
                                 options=pur_df.columns.tolist(),
                                 index=pur_df.columns.tolist().index(default_pur_isbn))
     
+#    st.subheader("구매 예정 목록의 가격 컬럼 선택 (선택 사항)")
+#    price_col_options = ["선택 안 함"] + pur_df.columns.tolist()
+#    default_price_col_index = 0
+#    for i, col_name in enumerate(price_col_options):
+#        if col_name in ["가격", "금액", "Price", "price", "AMOUNT", "Amount"]: # Common price column names
+#            default_price_col_index = i
+#            break
+#    price_col = st.selectbox("가격 컬럼 (합계 계산 및 형식 유지용)", 
+#                             options=price_col_options,
+#                             index=default_price_col_index,
+#                             key="price_column_selector")
+    
     # ISBN 정제 함수: 좌우 공백 제거, 하이픈 제거, 대문자 변환 등
     def clean_isbn(series):
         cleaned = series.astype(str).str.strip().str.replace("-", "", regex=False).str.upper()
@@ -220,38 +232,80 @@ if lib_file is not None and pur_file is not None:
         # 소장 도서 목록은 ISBN이 유효한 (13자리) 행만 남김
         lib_isbn_valid = lib_df[lib_isbn_col].astype(str).str.len() == 13
         lib_df = lib_df[lib_isbn_valid].dropna(subset=[lib_isbn_col])
+
+        # (신규) 선택된 가격 컬럼 정제
+        #if price_col != "선택 안 함" and price_col in pur_df.columns:
+        #    try:
+        #        # 문자열로 변환 후 정제해야 다양한 입력 형식에 대응 가능
+        #        temp_price_series = pur_df[price_col].astype(str)
+        #        # 쉼표 제거
+        #        temp_price_series = temp_price_series.str.replace(',', '', regex=False)
+        #        # 숫자, 소수점, 마이너스 기호 외 모든 문자 제거
+        #        temp_price_series = temp_price_series.str.replace(r'[^\d.\-]', '', regex=True)
+        #        # 숫자 타입으로 변환, 변환 불가 시 NaT/NaN 처리
+        #        pur_df[price_col] = pd.to_numeric(temp_price_series, errors='coerce')
+        #        st.success(f"'{price_col}' 컬럼을 숫자 형식으로 변환하고 정리했습니다.")
+        #    except Exception as e:
+        #        st.warning(f"'{price_col}' 컬럼을 숫자 형식으로 변환 중 오류 발생: {e}. 원본 데이터를 유지합니다.")
+
+        # 중복 가능성이 있는 ISBN 식별 (소장 목록에 있는 ISBN)
+        pur_df_isbn_not_na = pur_df[pur_isbn_col].notna()
+        pur_df_isbn_valid_len = pur_df[pur_isbn_col].astype(str).str.len() == 13
+        pur_df_isbn_in_lib = pur_df[pur_isbn_col].isin(lib_df[lib_isbn_col])
+        mask_potential_duplicates = pur_df_isbn_not_na & pur_df_isbn_valid_len & pur_df_isbn_in_lib
         
-        # 구매 예정 목록은 ISBN 칼럼이 있는 행만 대상으로 중복 제거하되,
-        # ISBN이 없는 행은 그대로 유지 (즉, ISBN이 있는 행 중에서만 제거)
-        # 따라서 중복 체크 대상은 ISBN 값이 존재하면서 길이가 13인 행입니다.
-        mask = pur_df[pur_isbn_col].notna() & (pur_df[pur_isbn_col].astype(str).str.len() == 13) & (pur_df[pur_isbn_col].isin(lib_df[lib_isbn_col]))
-        duplicate_isbns = set(pur_df.loc[mask, pur_isbn_col])
-        duplicate_count = len(duplicate_isbns)
-        
-        st.subheader("중복된 ISBN 목록")
-        if duplicate_isbns:
-            st.warning(f"총 {duplicate_count}개의 ISBN이 중복됩니다:")
-            st.write(duplicate_isbns)
+        potential_duplicates_df = pur_df[mask_potential_duplicates]
+        isbns_to_actually_remove = []
+
+        if not potential_duplicates_df.empty:
+            st.subheader("중복 ISBN 선택하여 제외")
+            st.warning(f"소장 도서 목록과 중복되는 ISBN이 구매 예정 목록에 {len(potential_duplicates_df)}건 있습니다. 아래 목록에서 '제외하기'를 선택하여 제거할 수 있습니다.")
+            
+            display_duplicates_df = potential_duplicates_df.copy()
+            # '제외하기' 컬럼을 맨 앞에 추가하고 기본값을 True (제외함)로 설정
+            display_duplicates_df.insert(0, '제외하기', True)
+            
+            edited_duplicates_df = st.data_editor(
+                display_duplicates_df,
+                disabled=potential_duplicates_df.columns.tolist(), # 원본 데이터 컬럼들은 수정 불가
+                key="duplicate_selection_editor",
+                hide_index=True
+            )
+            
+            isbns_to_actually_remove = edited_duplicates_df[edited_duplicates_df['제외하기']][pur_isbn_col].tolist()
+            
+            if isbns_to_actually_remove:
+                st.info(f"사용자 선택에 따라 {len(isbns_to_actually_remove)}건의 중복 도서를 제거합니다.")
+            else:
+                st.info("사용자가 모든 중복 의심 도서를 유지하도록 선택했습니다.")
         else:
-            st.info("중복된 ISBN이 없습니다.")
+            st.info("소장 도서 목록과 중복되는 ISBN이 구매 예정 목록에 없습니다.")
+
+        # 최종 output_df 생성: 선택된 중복 ISBN 제거
+        if isbns_to_actually_remove:
+            final_removal_mask = pur_df[pur_isbn_col].isin(isbns_to_actually_remove)
+            output_df = pur_df[~final_removal_mask].copy()
+        else:
+            output_df = pur_df.copy() 
         
-        # 중복 제거 후 구매 예정 목록 생성: ISBN이 존재하며 라이브러리 목록에 있는 행만 제거
-        output_df = pur_df.copy()
-        output_df = output_df[~mask].copy()
         removed_count = pur_df.shape[0] - output_df.shape[0]
-        st.info(f"총 {removed_count} 권의 중복 도서가 제거되었습니다.")
-        
+        if removed_count > 0:
+            st.success(f"총 {removed_count}권의 중복 도서가 최종적으로 제거되었습니다.")
+        elif not potential_duplicates_df.empty and not isbns_to_actually_remove:
+             st.success("중복이 발견되었으나, 사용자 선택에 따라 제거된 도서는 없습니다.")
+        # else: # 중복 없음, 이미 위에서 메시지 처리
+
         # 불필요한 빈 행 제거 (전체 셀의 50% 이상이 빈 행 제거)
         output_df = drop_rows_with_mostly_empty(output_df, threshold=0.5)
         
-        # 번호(순번) 칼럼 재설정: 기존 '순번' 칼럼이 있으면 덮어쓰고, 없으면 새로 삽입하여 1부터 연속된 번호를 부여
+        # 번호(순번) 칼럼 재설정
         output_df.reset_index(drop=True, inplace=True)
         if "순번" in output_df.columns:
             output_df["순번"] = range(1, len(output_df) + 1)
         else:
             output_df.insert(0, "순번", range(1, len(output_df) + 1))
         
-        st.subheader("중복 제거 후 구매 예정 목록 미리보기")
+        st.subheader("최종 구매 예정 목록 미리보기")
         st.dataframe(output_df)
         
         # 파일 다운로드 처리 (결과는 XLSX 형식, 원본 구매 예정 목록과 동일한 형식)
