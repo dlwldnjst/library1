@@ -55,8 +55,7 @@ st.markdown(
     *아래 주소에서 개선된 버전의 isbn 중복 제거기를 사용하실 수 있습니다. <br><hr>
 
     retriever.co.kr/isbn 
-    <br><hr>
-    ",
+    <br><hr>",
     unsafe_allow_html=True
 )
 
