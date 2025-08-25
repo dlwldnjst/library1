@@ -51,11 +51,14 @@ lib_file = st.file_uploader("소장 도서 목록 파일 업로드 (.xls 또는 
 pur_file = st.file_uploader("구매 예정 파일 업로드 (.xls 또는 .xlsx)", type=["xls", "xlsx"])
 
 st.markdown(
-    "<hr>구매 예정 파일을 업로드할 때 오류가 날 경우, 확장자를 xls에서 xlsx로 저장 후 다시 시도해주세요.<br><br>문의: dlwldnjst@gmail.com<br><hr>
+     """
+    <hr>구매 예정 파일을 업로드할 때 오류가 날 경우, 확장자를 xls에서 xlsx로 저장 후 다시 시도해주세요.<br><br>문의: dlwldnjst@gmail.com<br><hr>
     *아래 주소에서 개선된 버전의 isbn 중복 제거기를 사용하실 수 있습니다. <br><hr>
 
     retriever.co.kr/isbn 
-    <br><hr>",
+    <br><hr>
+    """,
+    
     unsafe_allow_html=True
 )
 
